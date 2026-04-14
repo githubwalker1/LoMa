@@ -1,7 +1,7 @@
 from typing import Annotated
 import tyro
 
-from .loma import LoMaB, LoMaB128, LoMaL, LoMaG, LoMa
+from .loma import LoMaB, LoMaB128, LoMaL, LoMaG, LoMaR, LoMa
 
 # Accept either a raw LoMa.Cfg instance or a named preset.
 LoMaConfig = (
@@ -9,5 +9,6 @@ LoMaConfig = (
     | Annotated[LoMaB, tyro.conf.subcommand("loma_b")]
     | Annotated[LoMaL, tyro.conf.subcommand("loma_l")]
     | Annotated[LoMaG, tyro.conf.subcommand("loma_g")]
+    | Annotated[LoMaR, tyro.conf.subcommand("loma_r")]
     | Annotated[LoMa.Cfg, tyro.conf.subcommand("loma_custom")]
 )

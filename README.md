@@ -20,6 +20,8 @@
 LoMa is a fast and accurate family of local feature matchers. It works similar to [LightGlue](https://github.com/cvg/LightGlue) but significantly improves matching robustness and accuracy across benchmarks, even outperforming [RoMa](https://github.com/Parskatt/RoMa) and [RoMa v2](https://github.com/Parskatt/RoMaV2) on the difficult [WxBS](https://arxiv.org/abs/1504.06603) benchmark. As LoMa leverages local keypoint descriptions, the models are perfect drop-in replacement in e.g. SfM and Visual Localization pipelines.
 
 ## Updates
+- [April 14, 2026] Rotation invariant LoMa released. The model, which we call LoMa-R, is great at aerial imagery (e.g. [SatAst](https://github.com/georg-bn/satast)). See the paper [Who Handles Orientation?](https://arxiv.org/abs/2604.11809) (CVPRW26) for more information.
+- [April 13, 2026] Integration available with [HLoc](https://github.com/davnords/Hierarchical-Localization) and [vismatch](https://github.com/gmberton/vismatch/pull/63).
 - [April 6, 2026] LoMa inference code released. 
 
 ## How to Use
@@ -28,7 +30,7 @@ import cv2
 from loma import LoMa, LoMaB
 
 # load pretrained model
-model = LoMa(LoMaB())  # also available: LoMaB128, LoMaL, LoMaG
+model = LoMa(LoMaB())  # also available: LoMaB128, LoMaL, LoMaG, LoMaR
 # Define image paths, e.g.
 img_A_path, img_B_path = "assets/0015_A.jpg", "assets/0015_B.jpg"
 # Extract matching keypoints in image coordinates
@@ -69,12 +71,14 @@ Use `uv run eval.py --help` to explore the different options.
 The results are similar to those reported in the paper. For example, running the evaluation for LoMa-B on WxBS gives us `mAA_10px: 0.6876`.
 
 ## Sizes
-We an array of models: LoMA-{B, B128, L, G}. For most usecases LoMa-B, which is the same size as LightGlue, works fine. LoMa-G is significantly heavier but gives the most accurate matches, even surpassing the RoMa-family on e.g. WxBS and IMC22.
+We an array of models: LoMA-{B, B128, L, G, R}. For most usecases LoMa-B, which is the same size as LightGlue, works fine. LoMa-G is significantly heavier but gives the most accurate matches, even surpassing the RoMa-family on e.g. WxBS and IMC22. LoMa-R provides a rotation invariant matcher and descriptor (through data augmentation).
 
 ## Checklist
 - [x] Publish the inference code.
+- [x] Release rotation invariant matcher.
+- [x] Integrate with [HLoc](https://github.com/cvg/Hierarchical-Localization?tab=readme-ov-file). See this [fork](https://github.com/davnords/Hierarchical-Localization).
+- [x] Integrate with [vismatch](https://github.com/gmberton/vismatch). See this [PR](https://github.com/gmberton/vismatch/pull/63).
 - [ ] Release a lightweight descriptor.
-- [ ] Integrate with [HLoc](https://github.com/cvg/Hierarchical-Localization?tab=readme-ov-file).
 - [ ] Provide training code.
 - [ ] Release HardMatch.
 
@@ -85,7 +89,7 @@ All our code except the matcher, which inherits its license from LightGlue, is M
 Thanks to [Parskatt](https://github.com/Parskatt) for writing most of the code. Our codebase structure is mainly based on [RoMaV2](https://github.com/Parskatt/RoMaV2) and our architectures build on [LightGlue](https://github.com/cvg/lightglue), [DeDoDe](https://github.com/Parskatt/DeDoDe), and [DaD](https://github.com/Parskatt/dad). 
 
 ## BibTeX
-If you find our models useful, please consider citing our paper!
+If you find our models useful, please consider citing our papers!
 ```bibtex
 @misc{nordström2026lomalocalfeaturematching,
       title={LoMa: Local Feature Matching Revisited}, 
@@ -95,5 +99,12 @@ If you find our models useful, please consider citing our paper!
       archivePrefix={arXiv},
       primaryClass={cs.CV},
       url={https://arxiv.org/abs/2604.04931}, 
+}
+
+@inproceedings{nordstrom2026who,
+  title={Who Handles Orientation? Investigating Invariance in Feature Matching},
+  author={David Nordström and Johan Edstedt and Georg Bökman and Fredrik Kahl},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
+  year={2026}
 }
 ```

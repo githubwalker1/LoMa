@@ -485,5 +485,15 @@ class LoMaG(LoMa.Cfg):
         "https://github.com/davnords/storage/releases/download/loma/loma_G.pth"
     )
 
+@dataclass(frozen=True, kw_only=True)
+class LoMaR(LoMa.Cfg):
+    name: Literal["loma_R"] = "loma_R"
+    input_dim: Literal[256] = 256
+    embed_dim: Literal[256] = 256
+    num_heads: Literal[4] = 4
+    descriptor: Literal["dedode_g"] = "dedode_g"
+    weights_url: str = (
+        "https://github.com/davnords/storage/releases/download/loma/loma_R.pth"
+    )
 
-LoMaName = Literal["loma_B128", "loma_B", "loma_L", "loma_G"]
+LoMaName = Literal["loma_B128", "loma_B", "loma_L", "loma_G", "loma_R"]

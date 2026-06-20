@@ -92,14 +92,11 @@ Thanks to [Parskatt](https://github.com/Parskatt) for writing most of the code. 
 ## BibTeX
 If you find our models useful, please consider citing our papers!
 ```bibtex
-@misc{nordström2026lomalocalfeaturematching,
+@inproceedings{nordstrom2026loma,
       title={LoMa: Local Feature Matching Revisited}, 
       author={David Nordström and Johan Edstedt and Georg Bökman and Jonathan Astermark and Anders Heyden and Viktor Larsson and Mårten Wadenbäck and Michael Felsberg and Fredrik Kahl},
-      year={2026},
-      eprint={2604.04931},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2604.04931}, 
+      booktitle={Proceedings of the European Conference on Computer Vision (ECCV)},
+      year={2026}
 }
 
 @inproceedings{nordstrom2026who,

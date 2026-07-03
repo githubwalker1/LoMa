@@ -88,9 +88,10 @@ The models should auto download as you initialize them. However, for those who p
 - [x] Release rotation invariant matcher.
 - [x] Integrate with [HLoc](https://github.com/cvg/Hierarchical-Localization?tab=readme-ov-file). See this [fork](https://github.com/davnords/Hierarchical-Localization).
 - [x] Integrate with [vismatch](https://github.com/gmberton/vismatch). See this [PR](https://github.com/gmberton/vismatch/pull/63).
+- [x] Provide training code.
+- [x] Release HardMatch.
+- [ ] Merge training code into main branch.
 - [ ] Release a lightweight descriptor.
-- [ ] Provide training code.
-- [ ] Release HardMatch.
 
 ## License
 All our code except the matcher, which inherits its license from LightGlue, is MIT license. LightGlue has an [Apache-2.0](https://github.com/cvg/LightGlue/blob/main/LICENSE) license.

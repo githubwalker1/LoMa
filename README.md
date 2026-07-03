@@ -75,6 +75,14 @@ The results are similar to those reported in the paper. For example, running the
 ## Sizes
 We an array of models: LoMA-{B, B128, L, G, R}. For most usecases LoMa-B, which is the same size as LightGlue, works fine. LoMa-G is significantly heavier but gives the most accurate matches, even surpassing the RoMa-family on e.g. WxBS and IMC22. LoMa-R provides a rotation invariant matcher and descriptor (through data augmentation).
 
+## Pretrained Weights
+The models should auto download as you initialize them. However, for those who prefer to directly download the weights we provide the links below.
+- **LoMa-B** – [Download](https://github.com/davnords/storage/releases/download/loma/loma_B.pt)
+- **LoMa-B128** – [Download](https://github.com/davnords/storage/releases/download/loma/loma_B128.pth)
+- **LoMa-L** – [Download](https://github.com/davnords/storage/releases/download/loma/loma_L.pth)
+- **LoMa-G** – [Download](https://github.com/davnords/storage/releases/download/loma/loma_G.pth)
+- **LoMa-R** – [Download](https://github.com/davnords/storage/releases/download/loma/loma_R.pth)
+
 ## Checklist
 - [x] Publish the inference code.
 - [x] Release rotation invariant matcher.

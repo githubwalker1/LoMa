@@ -6,6 +6,7 @@ from datetime import datetime
 from loma import LoMa, LoMaB128
 
 
+
 class LoMaMatcher:
     def __init__(self, model=None, save_dir="./loma_results"):
         self.model = model if model is not None else LoMa(LoMaB128())
@@ -113,24 +114,30 @@ class LoMaMatcher:
             # 优先保留内点，随机采样外点
             inlier_indices = np.where(inlier_mask)[0]
             outlier_indices = np.where(~inlier_mask)[0]
-            
-            # 保留所有内点，外点随机采样
-            if len(outlier_indices) > max_draw - len(inlier_indices):
-                np.random.seed(42)
-                sampled_outliers = np.random.choice(
-                    outlier_indices, 
-                    max_draw - len(inlier_indices), 
-                    replace=False
-                )
-                keep_indices = np.concatenate([inlier_indices, sampled_outliers])
+
+            rng = np.random.default_rng(42)
+
+            if len(inlier_indices) >= max_draw:
+                keep_indices = rng.choice(inlier_indices, max_draw, replace=False)
             else:
-                keep_indices = np.arange(len(matches))
-            
+                remaining = max_draw - len(inlier_indices)
+                if len(outlier_indices) > remaining:
+                    sampled_outliers = rng.choice(
+                        outlier_indices,
+                        remaining,
+                        replace=False
+                    )
+                else:
+                    sampled_outliers = outlier_indices
+                keep_indices = np.concatenate([inlier_indices, sampled_outliers])
+
             keep_indices = np.sort(keep_indices)
-            matches = [matches[i] for i in keep_indices]
-            inlier_mask = inlier_mask[keep_indices]
             kpA = [kpA[i] for i in keep_indices]
             kpB = [kpB[i] for i in keep_indices]
+            inlier_mask = inlier_mask[keep_indices]
+
+            # 裁剪关键点后必须重建 DMatch，避免 queryIdx/trainIdx 仍指向原始索引。
+            matches = [cv2.DMatch(i, i, 0) for i in range(len(kpA))]
         
         # 绘制参数
         # 内点: 绿色线条, 外点: 红色线条
@@ -201,11 +208,12 @@ class LoMaMatcher:
         return save_path
 
 
+
 def main():
     # ==================== 配置 ====================
-    IMG_A = "/path/to/image_A.jpg"   # 替换为你的图片路径
-    IMG_B = "/path/to/image_B.jpg"   # 替换为你的图片路径
-    SAVE_DIR = "./loma_results"
+    IMG_A = "assets/c.jpeg"   # 替换为你的图片路径
+    IMG_B = "assets/d.jpeg"   # 替换为你的图片路径
+    SAVE_DIR = "./results"
     
     # ==================== 执行 ====================
     matcher = LoMaMatcher(save_dir=SAVE_DIR)

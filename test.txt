@@ -1,0 +1,12 @@
+conda activate loma
+
+
+#更大模型
+python "demo.py" matcher:loma-b128
+
+python "demo.py" matcher:loma-b
+
+python "demo.py" matcher:loma-g
+
+#测试自己图片
+testMyImg.py

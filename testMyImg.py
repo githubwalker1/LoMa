@@ -3,13 +3,28 @@ import numpy as np
 import json
 import os
 from datetime import datetime
-from loma import LoMa, LoMaB128
+from loma import LoMa, LoMaB128, LoMaB, LoMaL, LoMaG, LoMaR
 
+
+MODEL_CONFIGS = {
+    "loma_b128": LoMaB128,
+    "loma_b": LoMaB,
+    "loma_l": LoMaL,
+    "loma_g": LoMaG,
+    "loma_r": LoMaR,
+}
 
 
 class LoMaMatcher:
-    def __init__(self, model=None, save_dir="./loma_results"):
-        self.model = model if model is not None else LoMa(LoMaB128())
+    def __init__(self, model=None, model_name="loma_b128", save_dir="./loma_results"):
+        if model is None:
+            if model_name not in MODEL_CONFIGS:
+                available = ", ".join(MODEL_CONFIGS)
+                raise ValueError(f"未知模型: {model_name}. 可选: {available}")
+            print(f"[INFO] 正在加载模型: {model_name}")
+            self.model = LoMa(MODEL_CONFIGS[model_name]())
+        else:
+            self.model = model
         self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
         
@@ -214,9 +229,14 @@ def main():
     IMG_A = "assets/c.jpeg"   # 替换为你的图片路径
     IMG_B = "assets/d.jpeg"   # 替换为你的图片路径
     SAVE_DIR = "./results"
-    
+    #MODEL_NAME = "loma_b128"  # 可选: loma_b128, loma_b, loma_l, loma_g, loma_r
+    MODEL_NAME = "loma_b"
+    # MODEL_NAME = "loma_l"
+    # MODEL_NAME = "loma_g"
+    # MODEL_NAME = "loma_r"
+
     # ==================== 执行 ====================
-    matcher = LoMaMatcher(save_dir=SAVE_DIR)
+    matcher = LoMaMatcher(model_name=MODEL_NAME, save_dir=SAVE_DIR)
     
     # 1. 匹配并估计基础矩阵
     result = matcher.match_and_estimate(

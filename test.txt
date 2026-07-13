@@ -10,3 +10,27 @@ python "demo.py" matcher:loma-g
 
 #测试自己图片
 testMyImg.py
+
+
+#导出模型 
+支持这些导出模式
+--kind detector        # 只导出 loma_detector.pt
+--kind descriptor      # 只导出 loma_descriptor.pt
+--kind matcher         # 只导出 loma_matcher.pt
+--kind split           # 导出三段：detector + descriptor + matcher
+--kind detect_describe # 保留旧逻辑：detector+descriptor 合在一起
+--kind all             # 三段 + 旧的 detect_describe 都导出
+#可导出模型
+"loma_b128"       #注意此模型描述子与特征子耦合
+"loma_b"
+"loma_l"
+"loma_g"
+"loma_r"
+
+#导出指令
+python scripts/export_loma_torchscript.py \
+  --output-dir exported_loma \
+  --model loma_b128 \
+  --num-keypoints 2048 \
+  --image-size 1024 \
+  --kind split

@@ -18,24 +18,53 @@ MODEL_PRESETS = {
 }
 
 
-class DetectDescribeWrapper(torch.nn.Module):
+class DetectorWrapper(torch.nn.Module):
     def __init__(self, model: LoMa, num_keypoints: int) -> None:
         super().__init__()
-        self.model = model
+        self.detector = model._detector
         self.num_keypoints = num_keypoints
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        keypoints, descriptors, _, _ = self.model.detect_and_describe(
-            image,
-            num_keypoints=self.num_keypoints,
-        )
-        return keypoints[0].float(), descriptors[0].float()
+        result = self.detector(image, self.num_keypoints)
+        return result["keypoints"][0].float(), result["keypoint_probs"][0].float()
+
+
+class DescriptorWrapper(torch.nn.Module):
+    def __init__(self, model: LoMa) -> None:
+        super().__init__()
+        self.descriptor = model._descriptor
+
+    def forward(
+        self,
+        image: torch.Tensor,
+        keypoints: torch.Tensor,
+    ) -> torch.Tensor:
+        result = self.descriptor.describe_keypoints(image, keypoints.unsqueeze(0))
+        return result["descriptions"][0].float()
+
+
+class DetectDescribeWrapper(torch.nn.Module):
+    def __init__(self, model: LoMa, num_keypoints: int) -> None:
+        super().__init__()
+        self.detector = model._detector
+        self.descriptor = model._descriptor
+        self.num_keypoints = num_keypoints
+
+    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        detection = self.detector(image, self.num_keypoints)
+        keypoints = detection["keypoints"]
+        description = self.descriptor.describe_keypoints(image, keypoints)
+        return keypoints[0].float(), description["descriptions"][0].float()
 
 
 class MatcherWrapper(torch.nn.Module):
     def __init__(self, model: LoMa, threshold: float) -> None:
         super().__init__()
-        self.model = model
+        self.input_proj = model.input_proj
+        self.posenc = model.posenc
+        self.transformers = model.transformers
+        self.log_assignment = model.log_assignment
+        self.n_layers = model.cfg.n_layers
         self.threshold = threshold
 
     def forward(
@@ -45,18 +74,31 @@ class MatcherWrapper(torch.nn.Module):
         keypoints1: torch.Tensor,
         descriptors1: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        scores = self.model(
-            keypoints0,
-            keypoints1,
+        keypoints0 = keypoints0.unsqueeze(0)
+        keypoints1 = keypoints1.unsqueeze(0)
+        descriptors0 = self.input_proj(descriptors0.unsqueeze(0).contiguous())
+        descriptors1 = self.input_proj(descriptors1.unsqueeze(0).contiguous())
+        encoding0 = self.posenc(keypoints0)
+        encoding1 = self.posenc(keypoints1)
+
+        for i in range(self.n_layers):
+            descriptors0, descriptors1 = self.transformers[i](
+                descriptors0,
+                descriptors1,
+                encoding0,
+                encoding1,
+            )
+
+        scores, _ = self.log_assignment[self.n_layers - 1](
             descriptors0,
             descriptors1,
-        )["scores"]
+        )
         matches0, _, match_scores0, _ = filter_matches(scores, self.threshold)
         return matches0[0], match_scores0[0].float()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Export LoMa TorchScript modules for ORB-SLAM3 C++ integration.")
+    parser = argparse.ArgumentParser(description="Export LoMa TorchScript modules for C++/TensorRT integration.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--model", choices=MODEL_PRESETS.keys(), default="loma_b128")
     parser.add_argument("--num-keypoints", type=int, default=2048)
@@ -64,11 +106,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--match-threshold", type=float, default=0.1)
     parser.add_argument(
         "--kind",
-        choices=("detect_describe", "matcher", "all"),
+        choices=("detector", "descriptor", "detect_describe", "matcher", "split", "all"),
         default="all",
-        help="Which TorchScript module to export.",
+        help=(
+            "Which TorchScript module to export. "
+            "'split' exports detector+descriptor+matcher; "
+            "'all' also exports the legacy detect_describe module."
+        ),
     )
     return parser.parse_args()
+
+
+def export_detector(model: LoMa, args: argparse.Namespace) -> None:
+    wrapper = DetectorWrapper(model, args.num_keypoints).eval()
+    example = torch.rand(1, 3, args.image_size, args.image_size, device=next(model.parameters()).device)
+    traced = torch.jit.trace(wrapper, example, strict=False, check_trace=False)
+    traced.save(str(args.output_dir / "loma_detector.pt"))
+
+
+def export_descriptor(model: LoMa, args: argparse.Namespace) -> None:
+    wrapper = DescriptorWrapper(model).eval()
+    device = next(model.parameters()).device
+    example_image = torch.rand(1, 3, args.image_size, args.image_size, device=device)
+    example_keypoints = torch.rand(args.num_keypoints, 2, device=device) * 2 - 1
+    traced = torch.jit.trace(
+        wrapper,
+        (example_image, example_keypoints),
+        strict=False,
+        check_trace=False,
+    )
+    traced.save(str(args.output_dir / "loma_descriptor.pt"))
 
 
 def export_detect_describe(model: LoMa, args: argparse.Namespace) -> None:
@@ -82,10 +149,10 @@ def export_matcher(model: LoMa, args: argparse.Namespace) -> None:
     wrapper = MatcherWrapper(model, args.match_threshold).eval()
     device = next(model.parameters()).device
     descriptor_dim = model.cfg.input_dim
-    keypoints0 = torch.rand(1, args.num_keypoints, 2, device=device) * 2 - 1
-    keypoints1 = torch.rand(1, args.num_keypoints, 2, device=device) * 2 - 1
-    descriptors0 = torch.rand(1, args.num_keypoints, descriptor_dim, device=device)
-    descriptors1 = torch.rand(1, args.num_keypoints, descriptor_dim, device=device)
+    keypoints0 = torch.rand(args.num_keypoints, 2, device=device) * 2 - 1
+    keypoints1 = torch.rand(args.num_keypoints, 2, device=device) * 2 - 1
+    descriptors0 = torch.rand(args.num_keypoints, descriptor_dim, device=device)
+    descriptors1 = torch.rand(args.num_keypoints, descriptor_dim, device=device)
     traced = torch.jit.trace(
         wrapper,
         (keypoints0, descriptors0, keypoints1, descriptors1),
@@ -101,9 +168,13 @@ def main() -> None:
 
     model = LoMa(MODEL_PRESETS[args.model]()).eval()
     with torch.inference_mode():
+        if args.kind in ("detector", "split", "all"):
+            export_detector(model, args)
+        if args.kind in ("descriptor", "split", "all"):
+            export_descriptor(model, args)
         if args.kind in ("detect_describe", "all"):
             export_detect_describe(model, args)
-        if args.kind in ("matcher", "all"):
+        if args.kind in ("matcher", "split", "all"):
             export_matcher(model, args)
 
 

@@ -10,6 +10,7 @@
 | `scripts/` | 基线、转换、验证与性能测试脚本 |
 | `results/` | 自动生成的 JSON 测试结果，不应作为模型输入 |
 | `orin_nx_realtime_slam_optimization_plan.md` | Orin NX 实时 SLAM 优化计划 |
+| `tensorrt_fp16_preflight.md` | FP16 TensorRT 转换前置检查与验证顺序 |
 
 ## 本地第一步：TorchScript F32 基线
 
@@ -64,6 +65,19 @@ python "ws/scripts/run_baseline_suite.py" \
 
 完整测试集的每个 case 都会记录完整 pipeline 的 P50/P95/P99、峰值显存、有效匹配数和 MAGSAC 统计。运行器遇到异常时会写入错误记录，并以非零状态码结束。
 
+在进入 TensorRT 前，先对代表性场景采集模块级耗时。例如：
+
+```bash
+python "ws/scripts/run_baseline_suite.py" \
+  --device cuda \
+  --case "case1/运动1" \
+  --profile-components \
+  --warmup 10 \
+  --iterations 50
+```
+
+再使用一个遮挡场景重复同样命令，例如 `--case "case3/遮挡2"`。结果 JSON 中的 `module_timing_ms` 会分别给出两张图的 detector、descriptor 以及 matcher 的 P50/P95/P99。只有确认真实瓶颈后，才进入 TensorRT FP16 转换。
+
 ## 后续顺序
 
 1. 用固定图像对运行并归档本地 F32 基线。
@@ -71,3 +85,5 @@ python "ws/scripts/run_baseline_suite.py" \
 3. 在 Orin NX 上重复同一 TorchScript 基线，确认数值与统计一致。
 4. 在 Orin NX 上构建固定 shape 的 FP16 TensorRT engine；不要复用 RTX 4060 Ti 构建的 TensorRT engine。
 5. 使用同一测试集执行 TensorRT FP16 正确性、延迟、峰值显存和 SLAM 质量验收。
+
+进入 FP16 转换前，先阅读 [TensorRT 前置检查](tensorrt_fp16_preflight.md)，其中记录了当前桌面环境的版本边界和必须完成的数值验证步骤。

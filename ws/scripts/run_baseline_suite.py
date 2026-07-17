@@ -37,6 +37,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iterations", type=int, default=20)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
+        "--case",
+        type=str,
+        default=None,
+        help="仅运行指定相对 case 路径，例如 case1/运动1。",
+    )
+    parser.add_argument(
+        "--profile-components",
+        action="store_true",
+        help="额外统计 detector、descriptor 与 matcher 的模块级延迟。",
+    )
+    parser.add_argument(
         "--device", choices=("auto", "cuda", "cpu"), default="auto"
     )
     parser.add_argument(
@@ -45,8 +56,8 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="默认关闭，作为 F32 数值参考基线。",
     )
-    parser.add_argument("--ransac-threshold", type=float, default=0.5)
-    parser.add_argument("--ransac-confidence", type=float, default=0.999999)
+    parser.add_argument("--ransac-threshold", type=float, default=1)
+    parser.add_argument("--ransac-confidence", type=float, default=0.99)
     parser.add_argument("--ransac-max-iters", type=int, default=10000)
     return parser.parse_args()
 
@@ -83,6 +94,55 @@ def write_result(results_dir: Path, result: dict[str, object]) -> Path:
     return output_path
 
 
+def profile_components(
+    model: TorchScriptLoMa,
+    image_a: torch.Tensor,
+    image_b: torch.Tensor,
+    warmup: int,
+    iterations: int,
+    device: torch.device,
+) -> dict[str, object]:
+    detector_a_output, detector_a_timing = benchmark(
+        lambda: model.detect(image_a), warmup, iterations, device
+    )
+    detector_b_output, detector_b_timing = benchmark(
+        lambda: model.detect(image_b), warmup, iterations, device
+    )
+    keypoints_a, _ = detector_a_output
+    keypoints_b, _ = detector_b_output
+    descriptors_a, descriptor_a_timing = benchmark(
+        lambda: model.describe(image_a, keypoints_a),
+        warmup,
+        iterations,
+        device,
+    )
+    descriptors_b, descriptor_b_timing = benchmark(
+        lambda: model.describe(image_b, keypoints_b),
+        warmup,
+        iterations,
+        device,
+    )
+    _, matcher_timing = benchmark(
+        lambda: model.match(keypoints_a, descriptors_a, keypoints_b, descriptors_b),
+        warmup,
+        iterations,
+        device,
+    )
+    return {
+        "detector_a": detector_a_timing,
+        "detector_b": detector_b_timing,
+        "detector_pair_p50_ms": round(
+            detector_a_timing["p50_ms"] + detector_b_timing["p50_ms"], 3
+        ),
+        "descriptor_a": descriptor_a_timing,
+        "descriptor_b": descriptor_b_timing,
+        "descriptor_pair_p50_ms": round(
+            descriptor_a_timing["p50_ms"] + descriptor_b_timing["p50_ms"], 3
+        ),
+        "matcher": matcher_timing,
+    }
+
+
 def main() -> None:
     args = parse_args()
     device = resolve_device(args.device)
@@ -91,6 +151,14 @@ def main() -> None:
         torch.backends.cudnn.allow_tf32 = args.tf32
 
     pairs, warnings = discover_pairs(args.data_dir)
+    if args.case is not None:
+        pairs = [
+            pair
+            for pair in pairs
+            if str(pair[0].parent.relative_to(args.data_dir)) == args.case
+        ]
+        if not pairs:
+            raise ValueError(f"未找到指定 case: {args.case}")
     if args.limit is not None:
         if args.limit <= 0:
             raise ValueError("limit 必须大于零。")
@@ -130,6 +198,15 @@ def main() -> None:
                 "memory_mib": memory,
                 "matching": matching,
             }
+            if args.profile_components:
+                case_result["module_timing_ms"] = profile_components(
+                    model,
+                    image_a,
+                    image_b,
+                    args.warmup,
+                    args.iterations,
+                    device,
+                )
             case_results.append(case_result)
             print(
                 "  "
@@ -159,6 +236,8 @@ def main() -> None:
             "input_size": args.input_size,
             "warmup": args.warmup,
             "iterations": args.iterations,
+            "case": args.case,
+            "profile_components": args.profile_components,
             "ransac_threshold": args.ransac_threshold,
         },
         "summary": {

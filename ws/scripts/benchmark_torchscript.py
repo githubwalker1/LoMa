@@ -105,8 +105,8 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="允许 CUDA 在 F32 算子中使用 TF32；默认关闭以保留 F32 参考基线",
     )
-    parser.add_argument("--ransac-threshold", type=float, default=0.5)
-    parser.add_argument("--ransac-confidence", type=float, default=0.999999)
+    parser.add_argument("--ransac-threshold", type=float, default=1)
+    parser.add_argument("--ransac-confidence", type=float, default=0.99)
     parser.add_argument("--ransac-max-iters", type=int, default=10000)
     return parser.parse_args()
 

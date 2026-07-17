@@ -11,6 +11,7 @@
 | `results/` | 自动生成的 JSON 测试结果，不应作为模型输入 |
 | `orin_nx_realtime_slam_optimization_plan.md` | Orin NX 实时 SLAM 优化计划 |
 | `tensorrt_fp16_preflight.md` | FP16 TensorRT 转换前置检查与验证顺序 |
+| `tensorrt_conversion.md` | Orin NX 静态 ONNX 与 FP16 engine 构建步骤 |
 
 ## 本地第一步：TorchScript F32 基线
 
@@ -87,3 +88,5 @@ python "ws/scripts/run_baseline_suite.py" \
 5. 使用同一测试集执行 TensorRT FP16 正确性、延迟、峰值显存和 SLAM 质量验收。
 
 进入 FP16 转换前，先阅读 [TensorRT 前置检查](tensorrt_fp16_preflight.md)，其中记录了当前桌面环境的版本边界和必须完成的数值验证步骤。
+
+板端开始 TensorRT 转换时，按 [TensorRT 转换流程](tensorrt_conversion.md) 操作。相关脚本只创建 ONNX 中间模型和当前设备可用的 engine，不会覆盖既有产物。
